@@ -53,7 +53,7 @@ def show_auth():
 
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        mode = st.radio("", ["Sign In", "Sign Up"], horizontal=True, label_visibility="collapsed")
+        mode = st.radio("Auth mode", ["Sign In", "Sign Up"], horizontal=True, label_visibility="collapsed")
         st.markdown("<br>", unsafe_allow_html=True)
 
         if mode == "Sign In":
@@ -171,7 +171,7 @@ with tab_dash:
     with col_m2:
         month_options = [(date(today.year, m, 1).strftime("%B %Y"), m) for m in range(1, 13)]
         selected_month_label = st.selectbox(
-            "", [m[0] for m in month_options],
+            "Month", [m[0] for m in month_options],
             index=today.month - 1,
             label_visibility="collapsed",
             key="activity_month"

@@ -41,7 +41,7 @@ def send_daily_reminder(user_id: int, username: str, pending_reviews: list):
 
     lines = [
         f"📚 *Smaran — UPSC Revision Reminder*",
-        f"📅 {_escape(today)}  \|  👤 {_escape(username)}",
+        f"📅 {_escape(today)}  \\|  👤 {_escape(username)}",
         f"━━━━━━━━━━━━━━━━━━",
         f"📋 *Total Reviews:* {total}",
         f"⏰ *Pending from past:* {len(overdue)}",
