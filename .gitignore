@@ -1,0 +1,31 @@
+# Virtual environment
+qvenv/
+venv/
+.venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Secrets (never push these)
+.env
+secrets.toml
+.streamlit/secrets.toml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+
+# Keep data/ and logs/ tracked (needed for Streamlit Cloud free tier)
+!data/
+!data/smaran.db
+!logs/
+!logs/smaran.log
