@@ -149,12 +149,16 @@ with tab_dash:
     st.header("📊 Dashboard")
 
     stats = get_review_stats(user_id)
-    _c1, _c2, _c3, _c4 = st.columns(4)
+    all_logs_dash = get_logs(user_id)
+    due_logs_dash = get_logs_due_today(user_id)
+    _c1, _c2, _c3, _c4, _c5, _c6 = st.columns(6)
     for _col, _label, _val, _color, _icon in [
         (_c1, "Subjects",         stats["total_subjects"],   "#7c3aed", "📖"),
         (_c2, "Topics",           stats["total_topics"],     "#4f46e5", "📝"),
         (_c3, "Pending Reviews",  stats["pending_today"],    "#ef4444", "🔔"),
         (_c4, "Completed Reviews",stats["total_completed"],  "#10b981", "✅"),
+        (_c5, "Total Logs",       len(all_logs_dash),        "#0ea5e9", "🗂️"),
+        (_c6, "Logs Due Today",   len(due_logs_dash),        "#f59e0b", "📝"),
     ]:
         with _col:
             st.markdown(f"""
@@ -546,6 +550,73 @@ with tab_review:
 
             st.markdown("<div style='margin-bottom:0.25rem;'></div>", unsafe_allow_html=True)
 
+    # ── Important Facts Review ────────────────────────────────────────────────
+    st.markdown("---")
+    st.subheader("📝 Important Facts Review")
+
+    due_logs_rev = get_logs_due_today(user_id)
+    st.markdown(f"**Logs due today: {len(due_logs_rev)}**")
+
+    if not due_logs_rev:
+        st.success("No fact logs due today 🎉")
+    else:
+        idx_key = "facts_review_idx"
+        if idx_key not in st.session_state or st.session_state.get("facts_review_reset"):
+            st.session_state[idx_key] = 0
+            st.session_state["facts_review_reset"] = False
+
+        idx = st.session_state[idx_key]
+        if idx >= len(due_logs_rev):
+            st.success("🎉 All fact logs done for today!")
+            if st.button("🔄 Restart", key="facts_restart"):
+                st.session_state[idx_key] = 0
+                st.rerun()
+        else:
+            log = due_logs_rev[idx]
+            st.markdown(f"**Review {idx + 1} / {len(due_logs_rev)}**")
+            st.progress(idx / len(due_logs_rev))
+
+            st.markdown(f"""
+                <div style='padding:1.25rem;background:#faf5ff;border-radius:12px;
+                            border-left:4px solid #7c3aed;margin-bottom:1rem;'>
+                    <p style='margin:0;font-size:0.82rem;color:#6d28d9;font-weight:600;'>
+                        📖 {log['subject_name']} &nbsp;›&nbsp; {log['topic_name']}
+                    </p>
+                    <p style='margin:0.75rem 0 0 0;font-size:1.1rem;font-weight:700;color:#1e293b;'>
+                        {log['prompt']}
+                    </p>
+                </div>
+            """, unsafe_allow_html=True)
+
+            if log.get("image_path") and Path(log["image_path"]).exists():
+                st.image(log["image_path"], use_container_width=True)
+
+            ans_key = f"facts_show_answer_{log['id']}"
+            if not st.session_state.get(ans_key):
+                if st.button("👁️ Show Answer", key=f"rev_show_ans_{log['id']}", use_container_width=True):
+                    st.session_state[ans_key] = True
+                    st.rerun()
+            else:
+                st.markdown(f"""
+                    <div style='padding:1rem;background:#f0fdf4;border-radius:10px;
+                                border-left:4px solid #10b981;margin-bottom:1rem;'>
+                        <p style='margin:0;font-size:1rem;color:#065f46;'>{log['answer']}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+                col_r1, col_r2 = st.columns(2)
+                with col_r1:
+                    if st.button("✅ Remembered", use_container_width=True, key=f"rev_rem_{log['id']}"):
+                        review_log(user_id, log["id"], remembered=True)
+                        st.session_state[idx_key] += 1
+                        st.session_state.pop(ans_key, None)
+                        st.rerun()
+                with col_r2:
+                    if st.button("❌ Forgot", use_container_width=True, key=f"rev_forg_{log['id']}"):
+                        review_log(user_id, log["id"], remembered=False)
+                        st.session_state[idx_key] += 1
+                        st.session_state.pop(ans_key, None)
+                        st.rerun()
+
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 4 — EXAMS
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -650,118 +721,9 @@ with tab_exams:
 with tab_facts:
     st.header("📝 Important Facts")
 
-    facts_sub = st.tabs(["📊 Dashboard", "🔁 Today's Review", "➕ Add Log", "📋 Browse Logs"])
-
-    # ── Facts Dashboard ───────────────────────────────────────────────────────
-    with facts_sub[0]:
-        all_logs = get_logs(user_id)
-        due_logs = get_logs_due_today(user_id)
-        subjects_list = get_subjects(user_id)
-        topics_list = get_topics(user_id)
-
-        fc1, fc2, fc3, fc4 = st.columns(4)
-        for _col, _label, _val, _color, _icon in [
-            (fc1, "Subjects",   len(subjects_list),  "#7c3aed", "📖"),
-            (fc2, "Topics",     len(topics_list),    "#4f46e5", "📝"),
-            (fc3, "Total Logs", len(all_logs),       "#0ea5e9", "🗂️"),
-            (fc4, "Due Today",  len(due_logs),       "#ef4444", "🔔"),
-        ]:
-            with _col:
-                st.markdown(f"""
-                    <div style='padding:1rem;background:linear-gradient(135deg,{_color}18,{_color}10);
-                                border-radius:10px;border-left:4px solid {_color};text-align:center;'>
-                        <p style='color:#718096;font-size:0.85rem;margin:0;'>{_icon} {_label}</p>
-                        <p style='color:{_color};font-size:2rem;font-weight:700;margin:0;'>{_val}</p>
-                    </div>
-                """, unsafe_allow_html=True)
-
-        st.markdown("---")
-
-        due_summary = get_logs_due_summary(user_id)
-        if due_summary:
-            st.subheader("📌 Pending by Subject")
-            for subj, topics_dict in due_summary.items():
-                total_subj = sum(topics_dict.values())
-                st.markdown(f"**{subj}: {total_subj}**")
-                for topic_name, cnt in topics_dict.items():
-                    st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;• {topic_name}: {cnt}")
-            st.markdown("---")
-
-        st.info("👆 Use the tabs above — **Today's Review**, **Add Log**, or **Browse Logs** — to get started.")
-
-    # ── Today's Review ────────────────────────────────────────────────────────
-    with facts_sub[1]:
-        due_logs = get_logs_due_today(user_id)
-        st.markdown(f"**Logs due today: {len(due_logs)}**")
-
-        if not due_logs:
-            st.success("No logs due today 🎉")
-            if st.button("📚 Review all logs", key="review_all_logs"):
-                st.session_state["facts_review_all"] = True
-                st.rerun()
-        else:
-            review_queue = due_logs
-            idx_key = "facts_review_idx"
-            if idx_key not in st.session_state or st.session_state.get("facts_review_reset"):
-                st.session_state[idx_key] = 0
-                st.session_state["facts_review_reset"] = False
-
-            idx = st.session_state[idx_key]
-            if idx >= len(review_queue):
-                st.success("🎉 All done for today!")
-                if st.button("🔄 Restart", key="facts_restart"):
-                    st.session_state[idx_key] = 0
-                    st.rerun()
-            else:
-                log = review_queue[idx]
-                st.markdown(f"**Review {idx + 1} / {len(review_queue)}**")
-                progress = (idx) / len(review_queue)
-                st.progress(progress)
-
-                st.markdown(f"""
-                    <div style='padding:1.25rem;background:#faf5ff;border-radius:12px;
-                                border-left:4px solid #7c3aed;margin-bottom:1rem;'>
-                        <p style='margin:0;font-size:0.82rem;color:#6d28d9;font-weight:600;'>
-                            📖 {log['subject_name']} &nbsp;›&nbsp; {log['topic_name']}
-                        </p>
-                        <p style='margin:0.75rem 0 0 0;font-size:1.1rem;font-weight:700;color:#1e293b;'>
-                            {log['prompt']}
-                        </p>
-                    </div>
-                """, unsafe_allow_html=True)
-
-                if log.get("image_path") and Path(log["image_path"]).exists():
-                    st.image(log["image_path"], use_container_width=True)
-
-                ans_key = f"facts_show_answer_{log['id']}"
-                if not st.session_state.get(ans_key):
-                    if st.button("👁️ Show Answer", key="facts_show_ans_btn", use_container_width=True):
-                        st.session_state[ans_key] = True
-                        st.rerun()
-                else:
-                    st.markdown(f"""
-                        <div style='padding:1rem;background:#f0fdf4;border-radius:10px;
-                                    border-left:4px solid #10b981;margin-bottom:1rem;'>
-                            <p style='margin:0;font-size:1rem;color:#065f46;'>{log['answer']}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-
-                    col_r1, col_r2 = st.columns(2)
-                    with col_r1:
-                        if st.button("✅ Remembered", use_container_width=True, key=f"rem_{log['id']}"):
-                            review_log(user_id, log["id"], remembered=True)
-                            st.session_state[idx_key] += 1
-                            st.session_state.pop(ans_key, None)
-                            st.rerun()
-                    with col_r2:
-                        if st.button("❌ Forgot", use_container_width=True, key=f"forg_{log['id']}"):
-                            review_log(user_id, log["id"], remembered=False)
-                            st.session_state[idx_key] += 1
-                            st.session_state.pop(ans_key, None)
-                            st.rerun()
-
     # ── Add Log ───────────────────────────────────────────────────────────────
-    with facts_sub[2]:
+    st.subheader("➕ Add Log")
+    with st.expander("Add a new fact log", expanded=False):
         subjects_for_log = get_subjects(user_id)
         if not subjects_for_log:
             st.warning("Create a subject first in Subject & Topic Manager.")
@@ -835,9 +797,11 @@ with tab_facts:
                         if ok: st.success(msg)
                         else: st.error(msg)
 
+    st.markdown("---")
+
     # ── Browse Logs ───────────────────────────────────────────────────────────
-    with facts_sub[3]:
-        all_subjects = get_subjects(user_id)
+    st.subheader("📋 Browse Logs")
+    all_subjects = get_subjects(user_id)
         sub_filter_map = {"All": None} | {s["name"]: s["id"] for s in all_subjects}
 
         col_f1, col_f2 = st.columns(2)
