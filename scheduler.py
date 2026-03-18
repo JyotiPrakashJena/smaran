@@ -5,7 +5,6 @@ sys.path.insert(0, str(Path(__file__).parent))
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.executors.pool import ThreadPoolExecutor
-from apscheduler.triggers.cron import CronTrigger
 from database import get_all_users_with_pending_reviews, get_reviews_for_date, today_ist
 from logger import get_logger
 

@@ -53,8 +53,6 @@ def send_daily_reminder(user_id: int, username: str, pending_reviews: list):
         for topic in topics:
             lines.append(f"    ▪️ {_escape(topic)}")
 
-    lines.append(f"\n━━━━━━━━━━━━━━━━━━\n⚡ _Smaran_")
-
     # Append Important Facts due
     facts_summary = get_logs_due_summary(user_id)
     if facts_summary:
@@ -65,9 +63,8 @@ def send_daily_reminder(user_id: int, username: str, pending_reviews: list):
             lines.append(f"\n📖 *{_escape(subject)}*")
             for topic_name, cnt in topics_dict.items():
                 lines.append(f"    ▪️ {_escape(topic_name)}: {cnt}")
-        lines.append(f"\n━━━━━━━━━━━━━━━━━━\n⚡ _Smaran_")
-    else:
-        pass  # footer already added above
+
+    lines.append(f"\n━━━━━━━━━━━━━━━━━━\n⚡ _Smaran_")
 
     text = "\n".join(lines)
     groups = get_telegram_groups(user_id)

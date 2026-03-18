@@ -687,19 +687,7 @@ with tab_facts:
                     st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;• {topic_name}: {cnt}")
             st.markdown("---")
 
-        col_q1, col_q2, col_q3 = st.columns(3)
-        with col_q1:
-            if st.button("▶️ Start Today's Review", use_container_width=True, key="facts_start_review"):
-                st.session_state["facts_tab"] = 1
-                st.rerun()
-        with col_q2:
-            if st.button("➕ Add New Log", use_container_width=True, key="facts_add_log"):
-                st.session_state["facts_tab"] = 2
-                st.rerun()
-        with col_q3:
-            if st.button("📋 Browse Logs", use_container_width=True, key="facts_browse"):
-                st.session_state["facts_tab"] = 3
-                st.rerun()
+        st.info("👆 Use the tabs above — **Today's Review**, **Add Log**, or **Browse Logs** — to get started.")
 
     # ── Today's Review ────────────────────────────────────────────────────────
     with facts_sub[1]:
@@ -717,14 +705,12 @@ with tab_facts:
             if idx_key not in st.session_state or st.session_state.get("facts_review_reset"):
                 st.session_state[idx_key] = 0
                 st.session_state["facts_review_reset"] = False
-                st.session_state["facts_show_answer"] = False
 
             idx = st.session_state[idx_key]
             if idx >= len(review_queue):
                 st.success("🎉 All done for today!")
                 if st.button("🔄 Restart", key="facts_restart"):
                     st.session_state[idx_key] = 0
-                    st.session_state["facts_show_answer"] = False
                     st.rerun()
             else:
                 log = review_queue[idx]
@@ -747,9 +733,10 @@ with tab_facts:
                 if log.get("image_path") and Path(log["image_path"]).exists():
                     st.image(log["image_path"], use_container_width=True)
 
-                if not st.session_state.get("facts_show_answer"):
+                ans_key = f"facts_show_answer_{log['id']}"
+                if not st.session_state.get(ans_key):
                     if st.button("👁️ Show Answer", key="facts_show_ans_btn", use_container_width=True):
-                        st.session_state["facts_show_answer"] = True
+                        st.session_state[ans_key] = True
                         st.rerun()
                 else:
                     st.markdown(f"""
@@ -764,13 +751,13 @@ with tab_facts:
                         if st.button("✅ Remembered", use_container_width=True, key=f"rem_{log['id']}"):
                             review_log(user_id, log["id"], remembered=True)
                             st.session_state[idx_key] += 1
-                            st.session_state["facts_show_answer"] = False
+                            st.session_state.pop(ans_key, None)
                             st.rerun()
                     with col_r2:
                         if st.button("❌ Forgot", use_container_width=True, key=f"forg_{log['id']}"):
                             review_log(user_id, log["id"], remembered=False)
                             st.session_state[idx_key] += 1
-                            st.session_state["facts_show_answer"] = False
+                            st.session_state.pop(ans_key, None)
                             st.rerun()
 
     # ── Add Log ───────────────────────────────────────────────────────────────
@@ -785,25 +772,13 @@ with tab_facts:
             with col_s1:
                 sel_sub = st.selectbox("Subject", list(sub_map.keys()), key="log_sub")
             with col_s2:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("➕", key="log_add_sub", help="Add Subject"):
-                    st.session_state["log_show_add_sub"] = True
-
-            if st.session_state.get("log_show_add_sub"):
-                with st.form("log_add_sub_form", clear_on_submit=True):
-                    new_sub_name = st.text_input("Subject Name")
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        if st.form_submit_button("✅ Add"):
-                            if new_sub_name.strip():
-                                ok, msg = add_subject(user_id, new_sub_name.strip())
-                                if ok: st.success(msg)
-                                else: st.error(msg)
-                                st.session_state["log_show_add_sub"] = False
-                                st.rerun()
-                    with c2:
-                        if st.form_submit_button("❌ Cancel"):
-                            st.session_state["log_show_add_sub"] = False
+                with st.popover("➕ Subject"):
+                    new_sub_name = st.text_input("Subject Name", key="pop_sub_name")
+                    if st.button("✅ Add Subject", key="pop_sub_add"):
+                        if new_sub_name.strip():
+                            ok, msg = add_subject(user_id, new_sub_name.strip())
+                            if ok: st.success(msg)
+                            else: st.error(msg)
                             st.rerun()
 
             topics_for_log = get_topics(user_id, sub_map.get(sel_sub)) if sel_sub in sub_map else []
@@ -817,27 +792,17 @@ with tab_facts:
                     key="log_topic"
                 )
             with col_t2:
-                st.markdown("<br>", unsafe_allow_html=True)
-                if st.button("➕", key="log_add_topic", help="Add Topic"):
-                    st.session_state["log_show_add_topic"] = True
-
-            if st.session_state.get("log_show_add_topic"):
-                with st.form("log_add_topic_form", clear_on_submit=True):
-                    st.text_input("Subject", value=sel_sub, disabled=True)
-                    new_topic_name = st.text_input("Topic Name")
-                    c1, c2 = st.columns(2)
-                    with c1:
-                        if st.form_submit_button("✅ Add"):
-                            if new_topic_name.strip() and sel_sub in sub_map:
-                                ok, msg, _ = add_topic(user_id, sub_map[sel_sub], new_topic_name.strip())
-                                if ok: st.success(msg)
-                                else: st.error(msg)
-                                st.session_state["log_show_add_topic"] = False
-                                st.rerun()
-                    with c2:
-                        if st.form_submit_button("❌ Cancel"):
-                            st.session_state["log_show_add_topic"] = False
+                with st.popover("➕ Topic"):
+                    st.caption(f"Adding to: {sel_sub}")
+                    new_topic_name = st.text_input("Topic Name", key="pop_topic_name")
+                    if st.button("✅ Add Topic", key="pop_topic_add"):
+                        if new_topic_name.strip() and sel_sub in sub_map:
+                            ok, msg, _ = add_topic(user_id, sub_map[sel_sub], new_topic_name.strip())
+                            if ok: st.success(msg)
+                            else: st.error(msg)
                             st.rerun()
+                        elif not new_topic_name.strip():
+                            st.error("Topic name required.")
 
             with st.form("add_log_form", clear_on_submit=True):
                 prompt_text = st.text_area("Prompt / Question *", height=80)
@@ -899,8 +864,20 @@ with tab_facts:
                 ):
                     edit_key = f"edit_log_{log['id']}"
                     if not st.session_state.get(edit_key):
-                        st.markdown(f"**Prompt:** {log['prompt']}")
-                        st.markdown(f"**Answer:** {log['answer']}")
+                        st.markdown(f"""
+                            <div style='padding:0.75rem 1rem;background:#faf5ff;border-radius:10px;
+                                        border-left:4px solid #7c3aed;margin-bottom:0.5rem;'>
+                                <p style='margin:0;font-size:0.78rem;font-weight:700;color:#7c3aed;
+                                          text-transform:uppercase;letter-spacing:0.05em;'>Question</p>
+                                <p style='margin:0.35rem 0 0 0;color:#1e293b;'>{log['prompt']}</p>
+                            </div>
+                            <div style='padding:0.75rem 1rem;background:#f0fdf4;border-radius:10px;
+                                        border-left:4px solid #10b981;margin-bottom:0.5rem;'>
+                                <p style='margin:0;font-size:0.78rem;font-weight:700;color:#10b981;
+                                          text-transform:uppercase;letter-spacing:0.05em;'>Answer</p>
+                                <p style='margin:0.35rem 0 0 0;color:#065f46;'>{log['answer']}</p>
+                            </div>
+                        """, unsafe_allow_html=True)
                         cols_meta = []
                         if log.get("tag"): cols_meta.append(f"🏷️ {log['tag']}")
                         if log.get("source"): cols_meta.append(f"📌 {log['source']}")
@@ -937,16 +914,20 @@ with tab_facts:
                                     st.session_state.pop(f"confirm_del_log_{log['id']}", None)
                                     st.rerun()
                     else:
-                        # Edit form
+                        # Edit form — subject selectbox is outside form so topic list updates dynamically
                         edit_subjects = get_subjects(user_id)
                         edit_sub_map = {s["name"]: s["id"] for s in edit_subjects}
                         cur_sub = next((s["name"] for s in edit_subjects if s["id"] == log["subject_id"]), list(edit_sub_map.keys())[0])
+                        e_sub_key = f"edit_sub_sel_{log['id']}"
+                        if e_sub_key not in st.session_state:
+                            st.session_state[e_sub_key] = cur_sub
+                        e_sub = st.selectbox("Subject", list(edit_sub_map.keys()),
+                                             index=list(edit_sub_map.keys()).index(st.session_state[e_sub_key]),
+                                             key=e_sub_key)
+                        e_topics = get_topics(user_id, edit_sub_map[e_sub])
+                        e_topic_map = {t["name"]: t["id"] for t in e_topics}
+                        cur_topic = next((t["name"] for t in e_topics if t["id"] == log["topic_id"]), list(e_topic_map.keys())[0] if e_topic_map else "")
                         with st.form(f"edit_log_form_{log['id']}"):
-                            e_sub = st.selectbox("Subject", list(edit_sub_map.keys()),
-                                                  index=list(edit_sub_map.keys()).index(cur_sub))
-                            e_topics = get_topics(user_id, edit_sub_map[e_sub])
-                            e_topic_map = {t["name"]: t["id"] for t in e_topics}
-                            cur_topic = next((t["name"] for t in e_topics if t["id"] == log["topic_id"]), list(e_topic_map.keys())[0] if e_topic_map else "")
                             e_topic = st.selectbox("Topic", list(e_topic_map.keys()),
                                                     index=list(e_topic_map.keys()).index(cur_topic) if cur_topic in e_topic_map else 0)
                             e_prompt = st.text_area("Prompt", value=log["prompt"])
@@ -967,10 +948,12 @@ with tab_facts:
                                                e_topic_map.get(e_topic, log["topic_id"]),
                                                e_prompt, e_answer, e_tag, e_source, img_path)
                                     st.session_state.pop(edit_key, None)
+                                    st.session_state.pop(e_sub_key, None)
                                     st.rerun()
                             with ec2:
                                 if st.form_submit_button("❌ Cancel", use_container_width=True):
                                     st.session_state.pop(edit_key, None)
+                                    st.session_state.pop(e_sub_key, None)
                                     st.rerun()
 
 # ═══════════════════════════════════════════════════════════════════════════════
