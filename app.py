@@ -147,19 +147,19 @@ with tab_dash:
     st.header("📊 Dashboard")
 
     stats = get_review_stats(user_id)
-    c1, c2, c3, c4 = st.columns(4)
-    for col, label, val, color, icon in [
-        (c1, "Subjects",         stats["total_subjects"],   "#7c3aed", "📖"),
-        (c2, "Topics",           stats["total_topics"],     "#4f46e5", "📝"),
-        (c3, "Pending Reviews",  stats["pending_today"],    "#ef4444", "🔔"),
-        (c4, "Completed Reviews",stats["total_completed"],  "#10b981", "✅"),
+    _c1, _c2, _c3, _c4 = st.columns(4)
+    for _col, _label, _val, _color, _icon in [
+        (_c1, "Subjects",         stats["total_subjects"],   "#7c3aed", "📖"),
+        (_c2, "Topics",           stats["total_topics"],     "#4f46e5", "📝"),
+        (_c3, "Pending Reviews",  stats["pending_today"],    "#ef4444", "🔔"),
+        (_c4, "Completed Reviews",stats["total_completed"],  "#10b981", "✅"),
     ]:
-        with col:
+        with _col:
             st.markdown(f"""
-                <div style='padding:1rem;background:linear-gradient(135deg,{color}18,{color}10);
-                            border-radius:10px;border-left:4px solid {color};text-align:center;'>
-                    <p style='color:#718096;font-size:0.85rem;margin:0;'>{icon} {label}</p>
-                    <p style='color:{color};font-size:2rem;font-weight:700;margin:0;'>{val}</p>
+                <div style='padding:1rem;background:linear-gradient(135deg,{_color}18,{_color}10);
+                            border-radius:10px;border-left:4px solid {_color};text-align:center;'>
+                    <p style='color:#718096;font-size:0.85rem;margin:0;'>{_icon} {_label}</p>
+                    <p style='color:{_color};font-size:2rem;font-weight:700;margin:0;'>{_val}</p>
                 </div>
             """, unsafe_allow_html=True)
 
