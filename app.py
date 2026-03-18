@@ -932,7 +932,8 @@ with tab_facts:
     else:
         for log in all_logs_qr:
             st.markdown(f"**Q:** {log['prompt']}")
-            st.markdown(f"**A:** {log['answer']}")
+            if st.toggle("Show Answer", key=f"qr_show_{log['id']}"):
+                st.markdown(f"**A:** {log['answer']}")
             st.markdown("---")
 
 # ═══════════════════════════════════════════════════════════════════════════════
