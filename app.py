@@ -340,7 +340,8 @@ with tab_manager:
                 if st.form_submit_button("✅ Add", use_container_width=True):
                     if new_sub.strip():
                         ok, msg = add_subject(user_id, new_sub)
-                        st.success(msg) if ok else st.error(msg)
+                        if ok: st.success(msg)
+                        else: st.error(msg)
                         st.session_state["show_add_subject"] = False
                         st.rerun()
             with c2:
@@ -366,7 +367,8 @@ with tab_manager:
                         if tn.strip():
                             sub_id = next(s["id"] for s in subjects_for_topic if s["name"] == sel_sub_for_topic)
                             ok, msg, _ = add_topic(user_id, sub_id, tn, ts, tt)
-                            st.success(msg) if ok else st.error(msg)
+                            if ok: st.success(msg)
+                            else: st.error(msg)
                             st.session_state["show_add_topic_top"] = False
                             st.rerun()
                         else:
@@ -468,7 +470,8 @@ with tab_manager:
                             if st.form_submit_button("✅ Add Topic", use_container_width=True):
                                 if tn.strip():
                                     ok, msg, _ = add_topic(user_id, sub["id"], tn, ts, tt)
-                                    st.success(msg) if ok else st.error(msg)
+                                    if ok: st.success(msg)
+                                    else: st.error(msg)
                                     st.session_state.pop(f"show_add_topic_{sub['id']}", None)
                                     st.rerun()
                                 else:
@@ -563,7 +566,8 @@ with tab_exams:
         if submitted:
             if exam_name.strip():
                 ok, msg = add_exam(user_id, exam_name, str(exam_date))
-                st.success(msg) if ok else st.error(msg)
+                if ok: st.success(msg)
+                else: st.error(msg)
                 st.rerun()
             else:
                 st.error("Exam name is required.")
@@ -793,7 +797,8 @@ with tab_facts:
                         if st.form_submit_button("✅ Add"):
                             if new_sub_name.strip():
                                 ok, msg = add_subject(user_id, new_sub_name.strip())
-                                st.success(msg) if ok else st.error(msg)
+                                if ok: st.success(msg)
+                                else: st.error(msg)
                                 st.session_state["log_show_add_sub"] = False
                                 st.rerun()
                     with c2:
@@ -825,7 +830,8 @@ with tab_facts:
                         if st.form_submit_button("✅ Add"):
                             if new_topic_name.strip() and sel_sub in sub_map:
                                 ok, msg, _ = add_topic(user_id, sub_map[sel_sub], new_topic_name.strip())
-                                st.success(msg) if ok else st.error(msg)
+                                if ok: st.success(msg)
+                                else: st.error(msg)
                                 st.session_state["log_show_add_topic"] = False
                                 st.rerun()
                     with c2:
@@ -861,7 +867,8 @@ with tab_facts:
                             user_id, sub_map[sel_sub], topic_map[sel_topic],
                             prompt_text, answer_text, tag_text, source_text, img_path
                         )
-                        st.success(msg) if ok else st.error(msg)
+                        if ok: st.success(msg)
+                        else: st.error(msg)
 
     # ── Browse Logs ───────────────────────────────────────────────────────────
     with facts_sub[3]:
