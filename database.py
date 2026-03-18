@@ -663,11 +663,12 @@ LOG_INTERVALS = SPACED_INTERVALS  # shared — same science applies to both
 
 
 def add_log(user_id: int, subject_id: int, topic_id: int, prompt: str, answer: str,
-            tag: str = "", source: str = "", image_path: str = "") -> tuple[bool, str]:
+            tag: str = "", source: str = "", image_path: str = "", log_date: str = "") -> tuple[bool, str]:
     from datetime import timedelta
     conn = get_conn()
     try:
-        tomorrow = (today_ist() + timedelta(days=1)).strftime("%Y-%m-%d")
+        base = datetime.strptime(log_date, "%Y-%m-%d").date() if log_date else today_ist()
+        tomorrow = (base + timedelta(days=1)).strftime("%Y-%m-%d")
         conn.execute(
             """INSERT INTO logs (user_id, subject_id, topic_id, prompt, answer, tag, source,
                image_path, interval_index, next_review_date, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",

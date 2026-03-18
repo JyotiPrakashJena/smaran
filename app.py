@@ -790,11 +790,13 @@ with tab_facts:
             with st.form("add_log_form", clear_on_submit=True):
                 prompt_text = st.text_area("Prompt / Question *", height=80)
                 answer_text = st.text_area("Answer / Explanation *", height=80)
-                col_f1, col_f2 = st.columns(2)
+                col_f1, col_f2, col_f3 = st.columns(3)
                 with col_f1:
                     tag_text = st.text_input("Tag (optional)", placeholder="factual, concept, trap")
                 with col_f2:
                     source_text = st.text_input("Source (optional)", placeholder="UPSC Prelims 2022")
+                with col_f3:
+                    log_date = st.date_input("Date", value=today_ist())
                 img_upload = st.file_uploader("Image (optional)", type=["png", "jpg", "jpeg"])
 
                 if st.form_submit_button("💾 Save Log", use_container_width=True):
@@ -813,7 +815,8 @@ with tab_facts:
                             Path(img_path).write_bytes(img_upload.read())
                         ok, msg = add_log(
                             user_id, sub_map[sel_sub], topic_map[sel_topic],
-                            prompt_text, answer_text, tag_text, source_text, img_path
+                            prompt_text, answer_text, tag_text, source_text, img_path,
+                            str(log_date)
                         )
                         if ok: st.success(msg)
                         else: st.error(msg)
@@ -879,17 +882,12 @@ with tab_facts:
                     if has_img:
                         st.image(log["image_path"], width=300)
 
-                    col_b1, col_b2, col_b3 = st.columns(3)
+                    col_b1, col_b2 = st.columns(2)
                     with col_b1:
                         if st.button("✏️ Edit", key=f"edit_btn_{log['id']}"):
                             st.session_state[edit_key] = True
                             st.rerun()
                     with col_b2:
-                        if st.button("🔄 Reset Review", key=f"reset_{log['id']}"):
-                            reset_log_review(user_id, log["id"])
-                            st.success("Review reset.")
-                            st.rerun()
-                    with col_b3:
                         if st.button("🗑️ Delete", key=f"del_log_{log['id']}"):
                             st.session_state[f"confirm_del_log_{log['id']}"] = True
 
