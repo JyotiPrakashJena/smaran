@@ -849,20 +849,27 @@ with tab_facts:
             ):
                 edit_key = f"edit_log_{log['id']}"
                 if not st.session_state.get(edit_key):
+                    flip_key = f"flip_{log['id']}"
+                    flipped = st.session_state.get(flip_key, False)
+                    front_bg = "#f0fdf4" if flipped else "#faf5ff"
+                    front_border = "#10b981" if flipped else "#7c3aed"
+                    front_label_color = "#10b981" if flipped else "#7c3aed"
+                    front_label = "Answer" if flipped else "Question"
+                    front_text_color = "#065f46" if flipped else "#1e293b"
+                    front_content = log['answer'] if flipped else log['prompt']
+                    flip_btn_label = "🔄 Show Question" if flipped else "🔄 Flip to Answer"
+
                     st.markdown(f"""
-                        <div style='padding:0.75rem 1rem;background:#faf5ff;border-radius:10px;
-                                    border-left:4px solid #7c3aed;margin-bottom:0.5rem;'>
-                            <p style='margin:0;font-size:0.78rem;font-weight:700;color:#7c3aed;
-                                        text-transform:uppercase;letter-spacing:0.05em;'>Question</p>
-                            <p style='margin:0.35rem 0 0 0;color:#1e293b;'>{log['prompt']}</p>
-                        </div>
-                        <div style='padding:0.75rem 1rem;background:#f0fdf4;border-radius:10px;
-                                    border-left:4px solid #10b981;margin-bottom:0.5rem;'>
-                            <p style='margin:0;font-size:0.78rem;font-weight:700;color:#10b981;
-                                        text-transform:uppercase;letter-spacing:0.05em;'>Answer</p>
-                            <p style='margin:0.35rem 0 0 0;color:#065f46;'>{log['answer']}</p>
+                        <div style='padding:0.75rem 1rem;background:{front_bg};border-radius:10px;
+                                    border-left:4px solid {front_border};margin-bottom:0.5rem;'>
+                            <p style='margin:0;font-size:0.78rem;font-weight:700;color:{front_label_color};
+                                      text-transform:uppercase;letter-spacing:0.05em;'>{front_label}</p>
+                            <p style='margin:0.35rem 0 0 0;color:{front_text_color};'>{front_content}</p>
                         </div>
                     """, unsafe_allow_html=True)
+                    if st.button(flip_btn_label, key=f"flip_btn_{log['id']}", use_container_width=True):
+                        st.session_state[flip_key] = not flipped
+                        st.rerun()
                     cols_meta = []
                     if log.get("tag"): cols_meta.append(f"🏷️ {log['tag']}")
                     if log.get("source"): cols_meta.append(f"📌 {log['source']}")
