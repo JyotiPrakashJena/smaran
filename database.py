@@ -6,7 +6,9 @@ from datetime import datetime, date, timezone, timedelta
 from git_sync import push_db
 
 DB_PATH = Path(__file__).parent / "data" / "smaran.db"
-SPACED_INTERVALS = [1, 3, 7, 15, 30]
+# Research-backed spaced repetition intervals (days) for long-term retention.
+# Based on Ebbinghaus forgetting curve: review at 1d, 3d, 7d, 14d, 30d, 60d, 120d.
+SPACED_INTERVALS = [1, 3, 7, 14, 30, 60, 120]
 IST = timezone(timedelta(hours=5, minutes=30))
 
 
@@ -150,6 +152,23 @@ def init_db():
             user_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             exam_date TEXT NOT NULL,
+            created_at TEXT NOT NULL
+        )
+    """)
+
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            subject_id INTEGER NOT NULL,
+            topic_id INTEGER NOT NULL,
+            prompt TEXT NOT NULL,
+            answer TEXT NOT NULL,
+            tag TEXT,
+            source TEXT,
+            image_path TEXT,
+            interval_index INTEGER NOT NULL DEFAULT 0,
+            next_review_date TEXT NOT NULL,
             created_at TEXT NOT NULL
         )
     """)
@@ -636,3 +655,146 @@ def mark_reviews_notified(user_id: int):
     conn.commit()
     conn.close()
     push_db()
+
+
+# ── Important Facts Logs ──────────────────────────────────────────────────────
+
+LOG_INTERVALS = SPACED_INTERVALS  # shared — same science applies to both
+
+
+def add_log(user_id: int, subject_id: int, topic_id: int, prompt: str, answer: str,
+            tag: str = "", source: str = "", image_path: str = "") -> tuple[bool, str]:
+    from datetime import timedelta
+    conn = get_conn()
+    try:
+        tomorrow = (today_ist() + timedelta(days=1)).strftime("%Y-%m-%d")
+        conn.execute(
+            """INSERT INTO logs (user_id, subject_id, topic_id, prompt, answer, tag, source,
+               image_path, interval_index, next_review_date, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)""",
+            (user_id, subject_id, topic_id, prompt.strip(), answer.strip(),
+             tag.strip(), source.strip(), image_path, 0, tomorrow,
+             now_ist().strftime("%Y-%m-%d %H:%M:%S"))
+        )
+        conn.commit()
+        push_db()
+        return True, "Log added."
+    except Exception as e:
+        return False, str(e)
+    finally:
+        conn.close()
+
+
+def get_logs(user_id: int, subject_id: int = None, topic_id: int = None):
+    conn = get_conn()
+    query = """
+        SELECT l.*, s.name as subject_name, t.name as topic_name
+        FROM logs l
+        JOIN subjects s ON l.subject_id = s.id
+        JOIN topics t ON l.topic_id = t.id
+        WHERE l.user_id=?
+    """
+    params = [user_id]
+    if subject_id:
+        query += " AND l.subject_id=?"
+        params.append(subject_id)
+    if topic_id:
+        query += " AND l.topic_id=?"
+        params.append(topic_id)
+    query += " ORDER BY l.created_at DESC"
+    rows = conn.execute(query, params).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def get_logs_due_today(user_id: int):
+    today = today_ist().strftime("%Y-%m-%d")
+    conn = get_conn()
+    rows = conn.execute("""
+        SELECT l.*, s.name as subject_name, t.name as topic_name
+        FROM logs l
+        JOIN subjects s ON l.subject_id = s.id
+        JOIN topics t ON l.topic_id = t.id
+        WHERE l.user_id=? AND l.next_review_date<=?
+        ORDER BY l.next_review_date ASC
+    """, (user_id, today)).fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+
+def review_log(user_id: int, log_id: int, remembered: bool):
+    from datetime import timedelta
+    conn = get_conn()
+    row = conn.execute("SELECT * FROM logs WHERE user_id=? AND id=?", (user_id, log_id)).fetchone()
+    if not row:
+        conn.close()
+        return
+    row = dict(row)
+    if remembered:
+        new_idx = min(row["interval_index"] + 1, len(LOG_INTERVALS) - 1)
+        days = LOG_INTERVALS[new_idx]
+    else:
+        new_idx = 0
+        days = LOG_INTERVALS[0]
+    next_date = (today_ist() + timedelta(days=days)).strftime("%Y-%m-%d")
+    conn.execute(
+        "UPDATE logs SET interval_index=?, next_review_date=? WHERE user_id=? AND id=?",
+        (new_idx, next_date, user_id, log_id)
+    )
+    conn.commit()
+    conn.close()
+    push_db()
+
+
+def update_log(user_id: int, log_id: int, subject_id: int, topic_id: int,
+               prompt: str, answer: str, tag: str, source: str, image_path: str = None):
+    conn = get_conn()
+    if image_path is not None:
+        conn.execute(
+            """UPDATE logs SET subject_id=?, topic_id=?, prompt=?, answer=?, tag=?, source=?,
+               image_path=? WHERE user_id=? AND id=?""",
+            (subject_id, topic_id, prompt.strip(), answer.strip(), tag.strip(), source.strip(),
+             image_path, user_id, log_id)
+        )
+    else:
+        conn.execute(
+            """UPDATE logs SET subject_id=?, topic_id=?, prompt=?, answer=?, tag=?, source=?
+               WHERE user_id=? AND id=?""",
+            (subject_id, topic_id, prompt.strip(), answer.strip(), tag.strip(), source.strip(),
+             user_id, log_id)
+        )
+    conn.commit()
+    conn.close()
+    push_db()
+
+
+def delete_log(user_id: int, log_id: int):
+    conn = get_conn()
+    conn.execute("DELETE FROM logs WHERE user_id=? AND id=?", (user_id, log_id))
+    conn.commit()
+    conn.close()
+    push_db()
+
+
+def reset_log_review(user_id: int, log_id: int):
+    from datetime import timedelta
+    tomorrow = (today_ist() + timedelta(days=1)).strftime("%Y-%m-%d")
+    conn = get_conn()
+    conn.execute(
+        "UPDATE logs SET interval_index=0, next_review_date=? WHERE user_id=? AND id=?",
+        (tomorrow, user_id, log_id)
+    )
+    conn.commit()
+    conn.close()
+    push_db()
+
+
+def get_logs_due_summary(user_id: int) -> dict:
+    """Returns {subject_name: {topic_name: count}} for logs due today."""
+    due = get_logs_due_today(user_id)
+    summary = {}
+    for log in due:
+        s = log["subject_name"]
+        t = log["topic_name"]
+        summary.setdefault(s, {}).setdefault(t, 0)
+        summary[s][t] += 1
+    return summary

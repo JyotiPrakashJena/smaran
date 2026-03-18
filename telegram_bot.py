@@ -1,5 +1,5 @@
 import requests
-from database import get_telegram_groups, get_bot_token, mark_reviews_notified, today_ist
+from database import get_telegram_groups, get_bot_token, mark_reviews_notified, today_ist, get_logs_due_summary
 from logger import get_logger
 
 log = get_logger("telegram")
@@ -54,6 +54,20 @@ def send_daily_reminder(user_id: int, username: str, pending_reviews: list):
             lines.append(f"    ▪️ {_escape(topic)}")
 
     lines.append(f"\n━━━━━━━━━━━━━━━━━━\n⚡ _Smaran_")
+
+    # Append Important Facts due
+    facts_summary = get_logs_due_summary(user_id)
+    if facts_summary:
+        total_facts = sum(sum(t.values()) for t in facts_summary.values())
+        lines.append(f"\n━━━━━━━━━━━━━━━━━━")
+        lines.append(f"📝 *Important Facts Due:* {total_facts}")
+        for subject, topics_dict in facts_summary.items():
+            lines.append(f"\n📖 *{_escape(subject)}*")
+            for topic_name, cnt in topics_dict.items():
+                lines.append(f"    ▪️ {_escape(topic_name)}: {cnt}")
+        lines.append(f"\n━━━━━━━━━━━━━━━━━━\n⚡ _Smaran_")
+    else:
+        pass  # footer already added above
 
     text = "\n".join(lines)
     groups = get_telegram_groups(user_id)

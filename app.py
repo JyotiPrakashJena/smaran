@@ -17,6 +17,8 @@ from database import (
     get_bot_token, save_bot_token, set_bot_token_active, delete_bot_token,
     get_telegram_groups, add_telegram_group, toggle_telegram_group, delete_telegram_group,
     get_exams, add_exam, delete_exam,
+    add_log, get_logs, get_logs_due_today, review_log, update_log, delete_log,
+    reset_log_review, get_logs_due_summary, LOG_INTERVALS,
     today_ist, fmt_ist,
     SPACED_INTERVALS,
 )
@@ -135,8 +137,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.markdown("---")
 
-tab_dash, tab_manager, tab_review, tab_exams, tab_notif = st.tabs([
-    "📊 Dashboard", "📂 Subject & Topic Manager", "🔁 Review", "🎯 Exams", "🔔 Notifications"
+tab_dash, tab_manager, tab_review, tab_exams, tab_facts, tab_notif = st.tabs([
+    "📊 Dashboard", "📂 Subject & Topic Manager", "🔁 Review", "🎯 Exams", "📝 Important Facts", "🔔 Notifications"
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -638,7 +640,334 @@ with tab_exams:
                     st.rerun()
 
 # ═══════════════════════════════════════════════════════════════════════════════
-# TAB 5 — NOTIFICATIONS
+# TAB 5 — IMPORTANT FACTS
+# ═══════════════════════════════════════════════════════════════════════════════
+
+with tab_facts:
+    st.header("📝 Important Facts")
+
+    facts_sub = st.tabs(["📊 Dashboard", "🔁 Today's Review", "➕ Add Log", "📋 Browse Logs"])
+
+    # ── Facts Dashboard ───────────────────────────────────────────────────────
+    with facts_sub[0]:
+        all_logs = get_logs(user_id)
+        due_logs = get_logs_due_today(user_id)
+        subjects_list = get_subjects(user_id)
+        topics_list = get_topics(user_id)
+
+        fc1, fc2, fc3, fc4 = st.columns(4)
+        for _col, _label, _val, _color, _icon in [
+            (fc1, "Subjects",   len(subjects_list),  "#7c3aed", "📖"),
+            (fc2, "Topics",     len(topics_list),    "#4f46e5", "📝"),
+            (fc3, "Total Logs", len(all_logs),       "#0ea5e9", "🗂️"),
+            (fc4, "Due Today",  len(due_logs),       "#ef4444", "🔔"),
+        ]:
+            with _col:
+                st.markdown(f"""
+                    <div style='padding:1rem;background:linear-gradient(135deg,{_color}18,{_color}10);
+                                border-radius:10px;border-left:4px solid {_color};text-align:center;'>
+                        <p style='color:#718096;font-size:0.85rem;margin:0;'>{_icon} {_label}</p>
+                        <p style='color:{_color};font-size:2rem;font-weight:700;margin:0;'>{_val}</p>
+                    </div>
+                """, unsafe_allow_html=True)
+
+        st.markdown("---")
+
+        due_summary = get_logs_due_summary(user_id)
+        if due_summary:
+            st.subheader("📌 Pending by Subject")
+            for subj, topics_dict in due_summary.items():
+                total_subj = sum(topics_dict.values())
+                st.markdown(f"**{subj}: {total_subj}**")
+                for topic_name, cnt in topics_dict.items():
+                    st.markdown(f"&nbsp;&nbsp;&nbsp;&nbsp;• {topic_name}: {cnt}")
+            st.markdown("---")
+
+        col_q1, col_q2, col_q3 = st.columns(3)
+        with col_q1:
+            if st.button("▶️ Start Today's Review", use_container_width=True, key="facts_start_review"):
+                st.session_state["facts_tab"] = 1
+                st.rerun()
+        with col_q2:
+            if st.button("➕ Add New Log", use_container_width=True, key="facts_add_log"):
+                st.session_state["facts_tab"] = 2
+                st.rerun()
+        with col_q3:
+            if st.button("📋 Browse Logs", use_container_width=True, key="facts_browse"):
+                st.session_state["facts_tab"] = 3
+                st.rerun()
+
+    # ── Today's Review ────────────────────────────────────────────────────────
+    with facts_sub[1]:
+        due_logs = get_logs_due_today(user_id)
+        st.markdown(f"**Logs due today: {len(due_logs)}**")
+
+        if not due_logs:
+            st.success("No logs due today 🎉")
+            if st.button("📚 Review all logs", key="review_all_logs"):
+                st.session_state["facts_review_all"] = True
+                st.rerun()
+        else:
+            review_queue = due_logs
+            idx_key = "facts_review_idx"
+            if idx_key not in st.session_state or st.session_state.get("facts_review_reset"):
+                st.session_state[idx_key] = 0
+                st.session_state["facts_review_reset"] = False
+                st.session_state["facts_show_answer"] = False
+
+            idx = st.session_state[idx_key]
+            if idx >= len(review_queue):
+                st.success("🎉 All done for today!")
+                if st.button("🔄 Restart", key="facts_restart"):
+                    st.session_state[idx_key] = 0
+                    st.session_state["facts_show_answer"] = False
+                    st.rerun()
+            else:
+                log = review_queue[idx]
+                st.markdown(f"**Review {idx + 1} / {len(review_queue)}**")
+                progress = (idx) / len(review_queue)
+                st.progress(progress)
+
+                st.markdown(f"""
+                    <div style='padding:1.25rem;background:#faf5ff;border-radius:12px;
+                                border-left:4px solid #7c3aed;margin-bottom:1rem;'>
+                        <p style='margin:0;font-size:0.82rem;color:#6d28d9;font-weight:600;'>
+                            📖 {log['subject_name']} &nbsp;›&nbsp; {log['topic_name']}
+                        </p>
+                        <p style='margin:0.75rem 0 0 0;font-size:1.1rem;font-weight:700;color:#1e293b;'>
+                            {log['prompt']}
+                        </p>
+                    </div>
+                """, unsafe_allow_html=True)
+
+                if log.get("image_path") and Path(log["image_path"]).exists():
+                    st.image(log["image_path"], use_container_width=True)
+
+                if not st.session_state.get("facts_show_answer"):
+                    if st.button("👁️ Show Answer", key="facts_show_ans_btn", use_container_width=True):
+                        st.session_state["facts_show_answer"] = True
+                        st.rerun()
+                else:
+                    st.markdown(f"""
+                        <div style='padding:1rem;background:#f0fdf4;border-radius:10px;
+                                    border-left:4px solid #10b981;margin-bottom:1rem;'>
+                            <p style='margin:0;font-size:1rem;color:#065f46;'>{log['answer']}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+
+                    col_r1, col_r2 = st.columns(2)
+                    with col_r1:
+                        if st.button("✅ Remembered", use_container_width=True, key=f"rem_{log['id']}"):
+                            review_log(user_id, log["id"], remembered=True)
+                            st.session_state[idx_key] += 1
+                            st.session_state["facts_show_answer"] = False
+                            st.rerun()
+                    with col_r2:
+                        if st.button("❌ Forgot", use_container_width=True, key=f"forg_{log['id']}"):
+                            review_log(user_id, log["id"], remembered=False)
+                            st.session_state[idx_key] += 1
+                            st.session_state["facts_show_answer"] = False
+                            st.rerun()
+
+    # ── Add Log ───────────────────────────────────────────────────────────────
+    with facts_sub[2]:
+        subjects_for_log = get_subjects(user_id)
+        if not subjects_for_log:
+            st.warning("Create a subject first in Subject & Topic Manager.")
+        else:
+            sub_map = {s["name"]: s["id"] for s in subjects_for_log}
+
+            col_s1, col_s2 = st.columns([4, 1])
+            with col_s1:
+                sel_sub = st.selectbox("Subject", list(sub_map.keys()), key="log_sub")
+            with col_s2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("➕", key="log_add_sub", help="Add Subject"):
+                    st.session_state["log_show_add_sub"] = True
+
+            if st.session_state.get("log_show_add_sub"):
+                with st.form("log_add_sub_form", clear_on_submit=True):
+                    new_sub_name = st.text_input("Subject Name")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.form_submit_button("✅ Add"):
+                            if new_sub_name.strip():
+                                ok, msg = add_subject(user_id, new_sub_name.strip())
+                                st.success(msg) if ok else st.error(msg)
+                                st.session_state["log_show_add_sub"] = False
+                                st.rerun()
+                    with c2:
+                        if st.form_submit_button("❌ Cancel"):
+                            st.session_state["log_show_add_sub"] = False
+                            st.rerun()
+
+            topics_for_log = get_topics(user_id, sub_map.get(sel_sub)) if sel_sub in sub_map else []
+            topic_map = {t["name"]: t["id"] for t in topics_for_log}
+
+            col_t1, col_t2 = st.columns([4, 1])
+            with col_t1:
+                sel_topic = st.selectbox(
+                    "Topic",
+                    list(topic_map.keys()) if topic_map else ["— no topics yet —"],
+                    key="log_topic"
+                )
+            with col_t2:
+                st.markdown("<br>", unsafe_allow_html=True)
+                if st.button("➕", key="log_add_topic", help="Add Topic"):
+                    st.session_state["log_show_add_topic"] = True
+
+            if st.session_state.get("log_show_add_topic"):
+                with st.form("log_add_topic_form", clear_on_submit=True):
+                    st.text_input("Subject", value=sel_sub, disabled=True)
+                    new_topic_name = st.text_input("Topic Name")
+                    c1, c2 = st.columns(2)
+                    with c1:
+                        if st.form_submit_button("✅ Add"):
+                            if new_topic_name.strip() and sel_sub in sub_map:
+                                ok, msg, _ = add_topic(user_id, sub_map[sel_sub], new_topic_name.strip())
+                                st.success(msg) if ok else st.error(msg)
+                                st.session_state["log_show_add_topic"] = False
+                                st.rerun()
+                    with c2:
+                        if st.form_submit_button("❌ Cancel"):
+                            st.session_state["log_show_add_topic"] = False
+                            st.rerun()
+
+            with st.form("add_log_form", clear_on_submit=True):
+                prompt_text = st.text_area("Prompt / Question *", height=80)
+                answer_text = st.text_area("Answer / Explanation *", height=80)
+                col_f1, col_f2 = st.columns(2)
+                with col_f1:
+                    tag_text = st.text_input("Tag (optional)", placeholder="factual, concept, trap")
+                with col_f2:
+                    source_text = st.text_input("Source (optional)", placeholder="UPSC Prelims 2022")
+                img_upload = st.file_uploader("Image (optional)", type=["png", "jpg", "jpeg"])
+
+                if st.form_submit_button("💾 Save Log", use_container_width=True):
+                    if not prompt_text.strip() or not answer_text.strip():
+                        st.error("Prompt and Answer are required.")
+                    elif sel_sub not in sub_map:
+                        st.error("Select a valid subject.")
+                    elif sel_topic not in topic_map:
+                        st.error("Select a valid topic.")
+                    else:
+                        img_path = ""
+                        if img_upload:
+                            img_dir = Path(__file__).parent / "data" / "log_images"
+                            img_dir.mkdir(parents=True, exist_ok=True)
+                            img_path = str(img_dir / f"{user_id}_{img_upload.name}")
+                            Path(img_path).write_bytes(img_upload.read())
+                        ok, msg = add_log(
+                            user_id, sub_map[sel_sub], topic_map[sel_topic],
+                            prompt_text, answer_text, tag_text, source_text, img_path
+                        )
+                        st.success(msg) if ok else st.error(msg)
+
+    # ── Browse Logs ───────────────────────────────────────────────────────────
+    with facts_sub[3]:
+        all_subjects = get_subjects(user_id)
+        sub_filter_map = {"All": None} | {s["name"]: s["id"] for s in all_subjects}
+
+        col_f1, col_f2 = st.columns(2)
+        with col_f1:
+            filter_sub = st.selectbox("Filter by Subject", list(sub_filter_map.keys()), key="browse_sub")
+        with col_f2:
+            if sub_filter_map[filter_sub]:
+                filter_topics = get_topics(user_id, sub_filter_map[filter_sub])
+                topic_filter_map = {"All": None} | {t["name"]: t["id"] for t in filter_topics}
+            else:
+                topic_filter_map = {"All": None}
+            filter_topic = st.selectbox("Filter by Topic", list(topic_filter_map.keys()), key="browse_topic")
+
+        logs = get_logs(user_id, sub_filter_map[filter_sub], topic_filter_map.get(filter_topic))
+
+        if not logs:
+            st.info("No logs found.")
+        else:
+            for log in logs:
+                has_img = bool(log.get("image_path") and Path(log["image_path"]).exists())
+                with st.expander(
+                    f"📖 {log['subject_name']} › {log['topic_name']} | {log['prompt'][:60]}{'...' if len(log['prompt']) > 60 else ''}",
+                    expanded=False
+                ):
+                    edit_key = f"edit_log_{log['id']}"
+                    if not st.session_state.get(edit_key):
+                        st.markdown(f"**Prompt:** {log['prompt']}")
+                        st.markdown(f"**Answer:** {log['answer']}")
+                        cols_meta = []
+                        if log.get("tag"): cols_meta.append(f"🏷️ {log['tag']}")
+                        if log.get("source"): cols_meta.append(f"📌 {log['source']}")
+                        cols_meta.append(f"📅 Next review: {log['next_review_date']}")
+                        if has_img: cols_meta.append("🖼️ Image")
+                        st.caption(" | ".join(cols_meta))
+                        if has_img:
+                            st.image(log["image_path"], width=300)
+
+                        col_b1, col_b2, col_b3 = st.columns(3)
+                        with col_b1:
+                            if st.button("✏️ Edit", key=f"edit_btn_{log['id']}"):
+                                st.session_state[edit_key] = True
+                                st.rerun()
+                        with col_b2:
+                            if st.button("🔄 Reset Review", key=f"reset_{log['id']}"):
+                                reset_log_review(user_id, log["id"])
+                                st.success("Review reset.")
+                                st.rerun()
+                        with col_b3:
+                            if st.button("🗑️ Delete", key=f"del_log_{log['id']}"):
+                                st.session_state[f"confirm_del_log_{log['id']}"] = True
+
+                        if st.session_state.get(f"confirm_del_log_{log['id']}"):
+                            st.warning("Delete this log?")
+                            dc1, dc2 = st.columns(2)
+                            with dc1:
+                                if st.button("✅ Yes", key=f"yes_del_log_{log['id']}"):
+                                    delete_log(user_id, log["id"])
+                                    st.session_state.pop(f"confirm_del_log_{log['id']}", None)
+                                    st.rerun()
+                            with dc2:
+                                if st.button("❌ No", key=f"no_del_log_{log['id']}"):
+                                    st.session_state.pop(f"confirm_del_log_{log['id']}", None)
+                                    st.rerun()
+                    else:
+                        # Edit form
+                        edit_subjects = get_subjects(user_id)
+                        edit_sub_map = {s["name"]: s["id"] for s in edit_subjects}
+                        cur_sub = next((s["name"] for s in edit_subjects if s["id"] == log["subject_id"]), list(edit_sub_map.keys())[0])
+                        with st.form(f"edit_log_form_{log['id']}"):
+                            e_sub = st.selectbox("Subject", list(edit_sub_map.keys()),
+                                                  index=list(edit_sub_map.keys()).index(cur_sub))
+                            e_topics = get_topics(user_id, edit_sub_map[e_sub])
+                            e_topic_map = {t["name"]: t["id"] for t in e_topics}
+                            cur_topic = next((t["name"] for t in e_topics if t["id"] == log["topic_id"]), list(e_topic_map.keys())[0] if e_topic_map else "")
+                            e_topic = st.selectbox("Topic", list(e_topic_map.keys()),
+                                                    index=list(e_topic_map.keys()).index(cur_topic) if cur_topic in e_topic_map else 0)
+                            e_prompt = st.text_area("Prompt", value=log["prompt"])
+                            e_answer = st.text_area("Answer", value=log["answer"])
+                            e_tag = st.text_input("Tag", value=log.get("tag", ""))
+                            e_source = st.text_input("Source", value=log.get("source", ""))
+                            e_img = st.file_uploader("Replace Image (optional)", type=["png", "jpg", "jpeg"])
+                            ec1, ec2 = st.columns(2)
+                            with ec1:
+                                if st.form_submit_button("💾 Save", use_container_width=True):
+                                    img_path = log.get("image_path", "")
+                                    if e_img:
+                                        img_dir = Path(__file__).parent / "data" / "log_images"
+                                        img_dir.mkdir(parents=True, exist_ok=True)
+                                        img_path = str(img_dir / f"{user_id}_{e_img.name}")
+                                        Path(img_path).write_bytes(e_img.read())
+                                    update_log(user_id, log["id"], edit_sub_map[e_sub],
+                                               e_topic_map.get(e_topic, log["topic_id"]),
+                                               e_prompt, e_answer, e_tag, e_source, img_path)
+                                    st.session_state.pop(edit_key, None)
+                                    st.rerun()
+                            with ec2:
+                                if st.form_submit_button("❌ Cancel", use_container_width=True):
+                                    st.session_state.pop(edit_key, None)
+                                    st.rerun()
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# TAB 6 — NOTIFICATIONS
 # ═══════════════════════════════════════════════════════════════════════════════
 
 with tab_notif:
