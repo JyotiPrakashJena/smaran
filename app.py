@@ -930,11 +930,10 @@ with tab_facts:
     if not all_logs_qr:
         st.info("No logs yet.")
     else:
+        cards_html = ""
         for log in all_logs_qr:
-            st.markdown(f"**Q:** {log['prompt']}")
-            if st.toggle("Show Answer", key=f"qr_show_{log['id']}"):
-                st.markdown(f"**A:** {log['answer']}")
-            st.markdown("---")
+            cards_html += f"<details style='margin-bottom:0.5rem;'><summary style='cursor:pointer;font-weight:600;'>{log['prompt']}</summary><div style='padding:0.5rem 0 0 0.5rem;color:#065f46;'>{log['answer']}</div></details>"
+        st.markdown(cards_html, unsafe_allow_html=True)
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 6 — NOTIFICATIONS
