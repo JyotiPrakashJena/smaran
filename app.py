@@ -151,23 +151,26 @@ with tab_dash:
     stats = get_review_stats(user_id)
     all_logs_dash = get_logs(user_id)
     due_logs_dash = get_logs_due_today(user_id)
-    _c1, _c2, _c3, _c4, _c5, _c6 = st.columns(6)
-    for _col, _label, _val, _color, _icon in [
-        (_c1, "Subjects",         stats["total_subjects"],   "#7c3aed", "📖"),
-        (_c2, "Topics",           stats["total_topics"],     "#4f46e5", "📝"),
-        (_c3, "Pending Reviews",  stats["pending_today"],    "#ef4444", "🔔"),
-        (_c4, "Completed Reviews",stats["total_completed"],  "#10b981", "✅"),
-        (_c5, "Total Logs",       len(all_logs_dash),        "#0ea5e9", "🗂️"),
-        (_c6, "Logs Due Today",   len(due_logs_dash),        "#f59e0b", "📝"),
-    ]:
-        with _col:
-            st.markdown(f"""
-                <div style='padding:1rem;background:linear-gradient(135deg,{_color}18,{_color}10);
-                            border-radius:10px;border-left:4px solid {_color};text-align:center;'>
-                    <p style='color:#718096;font-size:0.85rem;margin:0;'>{_icon} {_label}</p>
-                    <p style='color:{_color};font-size:2rem;font-weight:700;margin:0;'>{_val}</p>
-                </div>
-            """, unsafe_allow_html=True)
+
+    _metrics = [
+        ("Subjects",          stats["total_subjects"],  "#7c3aed", "📖"),
+        ("Topics",            stats["total_topics"],    "#4f46e5", "📝"),
+        ("Pending Reviews",   stats["pending_today"],   "#ef4444", "🔔"),
+        ("Completed Reviews", stats["total_completed"], "#10b981", "✅"),
+        ("Total Logs",        len(all_logs_dash),       "#0ea5e9", "🗂️"),
+        ("Logs Due Today",    len(due_logs_dash),       "#f59e0b", "📝"),
+    ]
+    for row_metrics in [_metrics[:3], _metrics[3:]]:
+        cols = st.columns(3)
+        for _col, (_label, _val, _color, _icon) in zip(cols, row_metrics):
+            with _col:
+                st.markdown(f"""
+                    <div style='padding:1rem 1.25rem;background:linear-gradient(135deg,{_color}18,{_color}08);
+                                border-radius:12px;border-left:4px solid {_color};margin-bottom:0.75rem;'>
+                        <p style='color:#718096;font-size:0.82rem;margin:0;font-weight:600;'>{_icon} {_label}</p>
+                        <p style='color:{_color};font-size:2rem;font-weight:800;margin:0.25rem 0 0 0;'>{_val}</p>
+                    </div>
+                """, unsafe_allow_html=True)
 
     st.markdown("---")
 
