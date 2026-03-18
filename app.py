@@ -823,128 +823,117 @@ with tab_facts:
 
     st.markdown("---")
 
-    # ── Browse Logs ───────────────────────────────────────────────────────────
+    # ── Browse Logs — Subject → Topic → Logs ─────────────────────────────────
     st.subheader("📋 Browse Logs")
-    all_subjects = get_subjects(user_id)
-    sub_filter_map = {"All": None} | {s["name"]: s["id"] for s in all_subjects}
-
-    col_f1, col_f2 = st.columns(2)
-    with col_f1:
-        filter_sub = st.selectbox("Filter by Subject", list(sub_filter_map.keys()), key="browse_sub")
-    with col_f2:
-        if sub_filter_map[filter_sub]:
-            filter_topics = get_topics(user_id, sub_filter_map[filter_sub])
-            topic_filter_map = {"All": None} | {t["name"]: t["id"] for t in filter_topics}
-        else:
-            topic_filter_map = {"All": None}
-        filter_topic = st.selectbox("Filter by Topic", list(topic_filter_map.keys()), key="browse_topic")
-
-    logs = get_logs(user_id, sub_filter_map[filter_sub], topic_filter_map.get(filter_topic))
-
-    if not logs:
-        st.info("No logs found.")
+    all_subjects_browse = get_subjects(user_id)
+    if not all_subjects_browse:
+        st.info("No logs yet. Add one above.")
     else:
-        for log in logs:
-            has_img = bool(log.get("image_path") and Path(log["image_path"]).exists())
-            with st.expander(
-                f"📖 {log['subject_name']} › {log['topic_name']} | {log['prompt'][:60]}{'...' if len(log['prompt']) > 60 else ''}",
-                expanded=False
-            ):
-                edit_key = f"edit_log_{log['id']}"
-                if not st.session_state.get(edit_key):
-                    flip_key = f"flip_{log['id']}"
-                    flipped = st.session_state.get(flip_key, False)
-                    front_bg = "#f0fdf4" if flipped else "#faf5ff"
-                    front_border = "#10b981" if flipped else "#7c3aed"
-                    front_label_color = "#10b981" if flipped else "#7c3aed"
-                    front_label = "Answer" if flipped else "Question"
-                    front_text_color = "#065f46" if flipped else "#1e293b"
-                    front_content = log['answer'] if flipped else log['prompt']
-                    flip_btn_label = "🔄 Show Question" if flipped else "🔄 Flip to Answer"
-
-                    st.markdown(f"""
-                        <div style='padding:0.75rem 1rem;background:{front_bg};border-radius:10px;
-                                    border-left:4px solid {front_border};margin-bottom:0.5rem;'>
-                            <p style='margin:0;font-size:0.78rem;font-weight:700;color:{front_label_color};
-                                      text-transform:uppercase;letter-spacing:0.05em;'>{front_label}</p>
-                            <p style='margin:0.35rem 0 0 0;color:{front_text_color};'>{front_content}</p>
-                        </div>
-                    """, unsafe_allow_html=True)
-                    if st.button(flip_btn_label, key=f"flip_btn_{log['id']}", use_container_width=True):
-                        st.session_state[flip_key] = not flipped
-                        st.rerun()
-                    cols_meta = []
-                    if log.get("tag"): cols_meta.append(f"🏷️ {log['tag']}")
-                    if log.get("source"): cols_meta.append(f"📌 {log['source']}")
-                    cols_meta.append(f"📅 Next review: {log['next_review_date']}")
-                    if has_img: cols_meta.append("🖼️ Image")
-                    st.caption(" | ".join(cols_meta))
-                    if has_img:
-                        st.image(log["image_path"], width=300)
-
-                    col_b1, col_b2 = st.columns(2)
-                    with col_b1:
-                        if st.button("✏️ Edit", key=f"edit_btn_{log['id']}"):
-                            st.session_state[edit_key] = True
-                            st.rerun()
-                    with col_b2:
-                        if st.button("🗑️ Delete", key=f"del_log_{log['id']}"):
-                            st.session_state[f"confirm_del_log_{log['id']}"] = True
-
-                    if st.session_state.get(f"confirm_del_log_{log['id']}"):
-                        st.warning("Delete this log?")
-                        dc1, dc2 = st.columns(2)
-                        with dc1:
-                            if st.button("✅ Yes", key=f"yes_del_log_{log['id']}"):
-                                delete_log(user_id, log["id"])
-                                st.session_state.pop(f"confirm_del_log_{log['id']}", None)
-                                st.rerun()
-                        with dc2:
-                            if st.button("❌ No", key=f"no_del_log_{log['id']}"):
-                                st.session_state.pop(f"confirm_del_log_{log['id']}", None)
-                                st.rerun()
+        for sub in all_subjects_browse:
+            sub_topics = get_topics(user_id, sub["id"])
+            sub_logs = get_logs(user_id, sub["id"])
+            with st.expander(f"📖 {sub['name']}  ({len(sub_logs)} logs)", expanded=False):
+                if not sub_topics:
+                    st.caption("No topics yet.")
                 else:
-                    # Edit form — subject selectbox is outside form so topic list updates dynamically
-                    edit_subjects = get_subjects(user_id)
-                    edit_sub_map = {s["name"]: s["id"] for s in edit_subjects}
-                    cur_sub = next((s["name"] for s in edit_subjects if s["id"] == log["subject_id"]), list(edit_sub_map.keys())[0])
-                    e_sub_key = f"edit_sub_sel_{log['id']}"
-                    if e_sub_key not in st.session_state:
-                        st.session_state[e_sub_key] = cur_sub
-                    e_sub = st.selectbox("Subject", list(edit_sub_map.keys()),
-                                            index=list(edit_sub_map.keys()).index(st.session_state[e_sub_key]),
-                                            key=e_sub_key)
-                    e_topics = get_topics(user_id, edit_sub_map[e_sub])
-                    e_topic_map = {t["name"]: t["id"] for t in e_topics}
-                    cur_topic = next((t["name"] for t in e_topics if t["id"] == log["topic_id"]), list(e_topic_map.keys())[0] if e_topic_map else "")
-                    with st.form(f"edit_log_form_{log['id']}"):
-                        e_topic = st.selectbox("Topic", list(e_topic_map.keys()),
-                                                index=list(e_topic_map.keys()).index(cur_topic) if cur_topic in e_topic_map else 0)
-                        e_prompt = st.text_area("Prompt", value=log["prompt"])
-                        e_answer = st.text_area("Answer", value=log["answer"])
-                        e_tag = st.text_input("Tag", value=log.get("tag", ""))
-                        e_source = st.text_input("Source", value=log.get("source", ""))
-                        e_img = st.file_uploader("Replace Image (optional)", type=["png", "jpg", "jpeg"])
-                        ec1, ec2 = st.columns(2)
-                        with ec1:
-                            if st.form_submit_button("💾 Save", use_container_width=True):
-                                img_path = log.get("image_path", "")
-                                if e_img:
-                                    img_dir = Path(__file__).parent / "data" / "log_images"
-                                    img_dir.mkdir(parents=True, exist_ok=True)
-                                    img_path = str(img_dir / f"{user_id}_{e_img.name}")
-                                    Path(img_path).write_bytes(e_img.read())
-                                update_log(user_id, log["id"], edit_sub_map[e_sub],
-                                            e_topic_map.get(e_topic, log["topic_id"]),
-                                            e_prompt, e_answer, e_tag, e_source, img_path)
-                                st.session_state.pop(edit_key, None)
-                                st.session_state.pop(e_sub_key, None)
-                                st.rerun()
-                        with ec2:
-                            if st.form_submit_button("❌ Cancel", use_container_width=True):
-                                st.session_state.pop(edit_key, None)
-                                st.session_state.pop(e_sub_key, None)
-                                st.rerun()
+                    for topic in sub_topics:
+                        topic_logs = [l for l in sub_logs if l["topic_id"] == topic["id"]]
+                        st.markdown(f"**{topic['name']}** — {len(topic_logs)} log(s)")
+                        if not topic_logs:
+                            st.caption("No logs for this topic.")
+                        else:
+                            for log in topic_logs:
+                                has_img = bool(log.get("image_path") and Path(log["image_path"]).exists())
+                                with st.expander(
+                                    f"{log['prompt'][:70]}{'...' if len(log['prompt']) > 70 else ''}",
+                                    expanded=False
+                                ):
+                                    edit_key = f"edit_log_{log['id']}"
+                                    if not st.session_state.get(edit_key):
+                                        st.markdown(f"**Q:** {log['prompt']}")
+                                        st.markdown(f"**A:** {log['answer']}")
+                                        cols_meta = []
+                                        if log.get("tag"): cols_meta.append(f"🏷️ {log['tag']}")
+                                        if log.get("source"): cols_meta.append(f"📌 {log['source']}")
+                                        cols_meta.append(f"📅 Next review: {log['next_review_date']}")
+                                        st.caption(" | ".join(cols_meta))
+                                        if has_img:
+                                            st.image(log["image_path"], width=300)
+                                        col_b1, col_b2 = st.columns(2)
+                                        with col_b1:
+                                            if st.button("✏️ Edit", key=f"edit_btn_{log['id']}"):
+                                                st.session_state[edit_key] = True
+                                                st.rerun()
+                                        with col_b2:
+                                            if st.button("🗑️ Delete", key=f"del_log_{log['id']}"):
+                                                st.session_state[f"confirm_del_log_{log['id']}"] = True
+                                        if st.session_state.get(f"confirm_del_log_{log['id']}"):
+                                            st.warning("Delete this log?")
+                                            dc1, dc2 = st.columns(2)
+                                            with dc1:
+                                                if st.button("✅ Yes", key=f"yes_del_log_{log['id']}"):
+                                                    delete_log(user_id, log["id"])
+                                                    st.session_state.pop(f"confirm_del_log_{log['id']}", None)
+                                                    st.rerun()
+                                            with dc2:
+                                                if st.button("❌ No", key=f"no_del_log_{log['id']}"):
+                                                    st.session_state.pop(f"confirm_del_log_{log['id']}", None)
+                                                    st.rerun()
+                                    else:
+                                        edit_subjects = get_subjects(user_id)
+                                        edit_sub_map = {s["name"]: s["id"] for s in edit_subjects}
+                                        cur_sub = next((s["name"] for s in edit_subjects if s["id"] == log["subject_id"]), list(edit_sub_map.keys())[0])
+                                        e_sub_key = f"edit_sub_sel_{log['id']}"
+                                        if e_sub_key not in st.session_state:
+                                            st.session_state[e_sub_key] = cur_sub
+                                        e_sub = st.selectbox("Subject", list(edit_sub_map.keys()),
+                                                             index=list(edit_sub_map.keys()).index(st.session_state[e_sub_key]),
+                                                             key=e_sub_key)
+                                        e_topics = get_topics(user_id, edit_sub_map[e_sub])
+                                        e_topic_map = {t["name"]: t["id"] for t in e_topics}
+                                        cur_topic = next((t["name"] for t in e_topics if t["id"] == log["topic_id"]), list(e_topic_map.keys())[0] if e_topic_map else "")
+                                        with st.form(f"edit_log_form_{log['id']}"):
+                                            e_topic = st.selectbox("Topic", list(e_topic_map.keys()),
+                                                                   index=list(e_topic_map.keys()).index(cur_topic) if cur_topic in e_topic_map else 0)
+                                            e_prompt = st.text_area("Prompt", value=log["prompt"])
+                                            e_answer = st.text_area("Answer", value=log["answer"])
+                                            e_tag = st.text_input("Tag", value=log.get("tag", ""))
+                                            e_source = st.text_input("Source", value=log.get("source", ""))
+                                            e_img = st.file_uploader("Replace Image (optional)", type=["png", "jpg", "jpeg"])
+                                            ec1, ec2 = st.columns(2)
+                                            with ec1:
+                                                if st.form_submit_button("💾 Save", use_container_width=True):
+                                                    img_path = log.get("image_path", "")
+                                                    if e_img:
+                                                        img_dir = Path(__file__).parent / "data" / "log_images"
+                                                        img_dir.mkdir(parents=True, exist_ok=True)
+                                                        img_path = str(img_dir / f"{user_id}_{e_img.name}")
+                                                        Path(img_path).write_bytes(e_img.read())
+                                                    update_log(user_id, log["id"], edit_sub_map[e_sub],
+                                                               e_topic_map.get(e_topic, log["topic_id"]),
+                                                               e_prompt, e_answer, e_tag, e_source, img_path)
+                                                    st.session_state.pop(edit_key, None)
+                                                    st.session_state.pop(e_sub_key, None)
+                                                    st.rerun()
+                                            with ec2:
+                                                if st.form_submit_button("❌ Cancel", use_container_width=True):
+                                                    st.session_state.pop(edit_key, None)
+                                                    st.session_state.pop(e_sub_key, None)
+                                                    st.rerun()
+                        st.markdown("---")
+
+    st.markdown("---")
+
+    # ── Quick Revision ────────────────────────────────────────────────────────
+    st.subheader("⚡ Quick Revision")
+    all_logs_qr = get_logs(user_id)
+    if not all_logs_qr:
+        st.info("No logs yet.")
+    else:
+        for log in all_logs_qr:
+            st.markdown(f"**Q:** {log['prompt']}")
+            st.markdown(f"**A:** {log['answer']}")
+            st.markdown("---")
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # TAB 6 — NOTIFICATIONS
