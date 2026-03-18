@@ -730,7 +730,8 @@ def review_log(user_id: int, log_id: int, remembered: bool):
         return
     row = dict(row)
     if remembered:
-        new_idx = min(row["interval_index"] + 1, len(LOG_INTERVALS) - 1)
+        next_idx = row["interval_index"] + 1
+        new_idx = next_idx % len(LOG_INTERVALS)  # wrap around after 120d
         days = LOG_INTERVALS[new_idx]
     else:
         new_idx = 0
