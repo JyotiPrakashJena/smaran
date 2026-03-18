@@ -4,6 +4,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 import streamlit as st
 from datetime import date, datetime
+from git_sync import pull_db
 from database import (
     init_db,
     register_user, login_user,
@@ -25,6 +26,9 @@ from styling import CUSTOM_CSS
 st.set_page_config(page_title="Smaran", page_icon="📚", layout="wide", initial_sidebar_state="expanded")
 st.markdown(CUSTOM_CSS, unsafe_allow_html=True)
 
+if "db_pulled" not in st.session_state:
+    pull_db()
+    st.session_state["db_pulled"] = True
 init_db()
 
 if "scheduler_started" not in st.session_state:

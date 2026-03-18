@@ -3,6 +3,7 @@ import hashlib
 import secrets
 from pathlib import Path
 from datetime import datetime, date, timezone, timedelta
+from git_sync import push_db
 
 DB_PATH = Path(__file__).parent / "data" / "smaran.db"
 SPACED_INTERVALS = [1, 3, 7, 15, 30]
@@ -176,6 +177,7 @@ def add_exam(user_id: int, name: str, exam_date: str) -> tuple[bool, str]:
             (user_id, name.strip(), exam_date, now_ist().strftime("%Y-%m-%d %H:%M:%S"))
         )
         conn.commit()
+        push_db()
         return True, "Exam added."
     except Exception as e:
         return False, str(e)
@@ -188,6 +190,7 @@ def delete_exam(user_id: int, exam_id: int):
     conn.execute("DELETE FROM exams WHERE user_id=? AND id=?", (user_id, exam_id))
     conn.commit()
     conn.close()
+    push_db()
 
 
 # ── Sessions ─────────────────────────────────────────────────────────────────
@@ -201,6 +204,7 @@ def create_session(user_id: int) -> str:
     )
     conn.commit()
     conn.close()
+    push_db()
     return token
 
 
@@ -221,6 +225,7 @@ def delete_session(token: str):
     conn.execute("DELETE FROM sessions WHERE token=?", (token,))
     conn.commit()
     conn.close()
+    push_db()
 
 
 # ── Auth ──────────────────────────────────────────────────────────────────────
@@ -237,6 +242,7 @@ def register_user(username: str, password: str) -> tuple[bool, str]:
             (username.strip(), _hash(password), now_ist().strftime("%Y-%m-%d %H:%M:%S"))
         )
         conn.commit()
+        push_db()
         return True, "Account created successfully!"
     except sqlite3.IntegrityError:
         return False, "Username already exists."
@@ -273,6 +279,7 @@ def add_subject(user_id: int, name: str) -> tuple[bool, str]:
             (user_id, name.strip(), now_ist().strftime("%Y-%m-%d %H:%M:%S"))
         )
         conn.commit()
+        push_db()
         return True, "Subject added."
     except sqlite3.IntegrityError:
         return False, "Subject already exists."
@@ -297,6 +304,7 @@ def delete_subject(user_id: int, subject_id: int):
     conn.execute("DELETE FROM subjects WHERE user_id=? AND id=?", (user_id, subject_id))
     conn.commit()
     conn.close()
+    push_db()
 
 
 # ── Topics ────────────────────────────────────────────────────────────────────
@@ -328,6 +336,7 @@ def add_topic(user_id: int, subject_id: int, name: str, source: str = "", tags: 
              now_ist().strftime("%Y-%m-%d %H:%M:%S"))
         )
         conn.commit()
+        push_db()
         return True, "Topic added.", cur.lastrowid
     except sqlite3.IntegrityError:
         return False, "Topic already exists in this subject.", -1
@@ -347,6 +356,7 @@ def delete_topic(user_id: int, topic_id: int):
     conn.execute("DELETE FROM topics WHERE user_id=? AND id=?", (user_id, topic_id))
     conn.commit()
     conn.close()
+    push_db()
 
 
 # ── Attachments ───────────────────────────────────────────────────────────────
@@ -359,6 +369,7 @@ def add_attachment(user_id: int, topic_id: int, filename: str, file_data: bytes)
     )
     conn.commit()
     conn.close()
+    push_db()
 
 
 def get_attachments(user_id: int, topic_id: int):
@@ -386,6 +397,7 @@ def delete_attachment(user_id: int, attachment_id: int):
     conn.execute("DELETE FROM attachments WHERE user_id=? AND id=?", (user_id, attachment_id))
     conn.commit()
     conn.close()
+    push_db()
 
 
 # ── Entries ───────────────────────────────────────────────────────────────────
@@ -404,6 +416,7 @@ def add_entry(user_id: int, topic_id: int, read_date: str) -> int:
     conn.commit()
     conn.close()
     _create_review_schedule(user_id, entry_id, topic_id, read_date)
+    push_db()
     return entry_id
 
 
@@ -479,6 +492,7 @@ def complete_review(user_id: int, review_id: int):
     )
     conn.commit()
     conn.close()
+    push_db()
 
 
 def get_review_stats(user_id: int):
@@ -541,6 +555,7 @@ def save_bot_token(user_id: int, token: str):
                  (user_id, "bot_token_active", "1"))
     conn.commit()
     conn.close()
+    push_db()
 
 
 def set_bot_token_active(user_id: int, active: bool):
@@ -549,6 +564,7 @@ def set_bot_token_active(user_id: int, active: bool):
                  (user_id, "bot_token_active", "1" if active else "0"))
     conn.commit()
     conn.close()
+    push_db()
 
 
 def delete_bot_token(user_id: int):
@@ -557,6 +573,7 @@ def delete_bot_token(user_id: int):
     conn.execute("UPDATE settings SET value='1' WHERE user_id=? AND key='bot_token_active'", (user_id,))
     conn.commit()
     conn.close()
+    push_db()
 
 
 def get_telegram_groups(user_id: int):
@@ -572,6 +589,7 @@ def add_telegram_group(user_id: int, group_id: str, label: str):
                  (user_id, group_id, label))
     conn.commit()
     conn.close()
+    push_db()
 
 
 def toggle_telegram_group(user_id: int, row_id: int, active: bool):
@@ -580,6 +598,7 @@ def toggle_telegram_group(user_id: int, row_id: int, active: bool):
                  (1 if active else 0, user_id, row_id))
     conn.commit()
     conn.close()
+    push_db()
 
 
 def delete_telegram_group(user_id: int, row_id: int):
@@ -587,6 +606,7 @@ def delete_telegram_group(user_id: int, row_id: int):
     conn.execute("DELETE FROM telegram_groups WHERE user_id=? AND id=?", (user_id, row_id))
     conn.commit()
     conn.close()
+    push_db()
 
 
 def get_all_users_with_pending_reviews():
@@ -615,3 +635,4 @@ def mark_reviews_notified(user_id: int):
     """, (today, user_id, today, today))
     conn.commit()
     conn.close()
+    push_db()
