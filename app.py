@@ -137,8 +137,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.markdown("---")
 
-tab_dash, tab_manager, tab_review, tab_exams, tab_facts, tab_notif = st.tabs([
-    "📊 Dashboard", "📂 Subject & Topic Manager", "🔁 Review", "🎯 Exams", "📝 Important Facts", "🔔 Notifications"
+tab_dash, tab_review, tab_manager, tab_facts, tab_exams, tab_notif = st.tabs([
+    "📊 Dashboard", "🔁 Review", "📂 Subject & Topic Manager", "📝 Important Facts", "🎯 Exams", "🔔 Notifications"
 ])
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -282,6 +282,24 @@ with tab_dash:
                     <span style='font-weight:700;color:#4c1d95;'>{e['subject_name']}</span>
                     <span style='color:#6d28d9;'> › {e['topic_name']}</span>
                     <span style='float:right;font-size:0.8rem;color:#94a3b8;'>{e['read_date']}</span>
+                </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.subheader("🗂️ Logs Due Today")
+
+    due_logs_today = get_logs_due_today(user_id)
+    if not due_logs_today:
+        st.success("No fact logs due today 🎉")
+    else:
+        for log in due_logs_today:
+            st.markdown(f"""
+                <div style='padding:0.75rem 1rem;margin-bottom:0.5rem;border-radius:10px;
+                            background:#fffbeb;border-left:4px solid #f59e0b;border:1px solid #fde68a;'>
+                    <span style='font-weight:700;color:#92400e;'>{log['subject_name']}</span>
+                    <span style='color:#b45309;'> › {log['topic_name']}</span>
+                    <span style='float:right;font-size:0.8rem;color:#94a3b8;'>Due: {log['next_review_date']}</span>
+                    <div style='font-size:0.82rem;color:#78350f;margin-top:0.25rem;'>{log['prompt'][:80]}{'...' if len(log['prompt']) > 80 else ''}</div>
                 </div>
             """, unsafe_allow_html=True)
 
